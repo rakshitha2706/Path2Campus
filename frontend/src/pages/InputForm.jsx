@@ -211,7 +211,7 @@ export default function InputForm() {
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Max Tuition Fee (Rs)</label>
+                  <label className="form-label">Max Tuition Fee (Rs) <span className="text-slate-400 text-xs">(Optional)</span></label>
                   <input
                     type="number"
                     placeholder="e.g. 100000"

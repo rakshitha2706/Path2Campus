@@ -75,12 +75,6 @@ export default function Comparison() {
           v2: c2.tuition_fee ? `Rs ${c2.tuition_fee.toLocaleString()}` : '-',
           better: renderBetter(c1.tuition_fee, c2.tuition_fee, true),
         },
-        {
-          label: 'ROI (Higher is better)',
-          v1: c1.roi ? `${c1.roi}x` : '-',
-          v2: c2.roi ? `${c2.roi}x` : '-',
-          better: renderBetter(c1.roi, c2.roi, false),
-        },
       ]
     : [
         { label: 'Institute Name', v1: c1.institute, v2: c2.institute },

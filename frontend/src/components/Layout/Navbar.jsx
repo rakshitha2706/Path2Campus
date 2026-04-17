@@ -1,18 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Search, Menu, LogOut, User, ChevronDown } from 'lucide-react';
+import { Menu, LogOut, User, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Navbar({ onMenuClick }) {
   const { user, logout } = useAuth();
-  const [search, setSearch] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const navigate = useNavigate();
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (search.trim()) navigate(`/search?q=${encodeURIComponent(search)}`);
-  };
 
   return (
     <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 lg:px-6 py-3 flex items-center gap-4">
@@ -21,27 +15,7 @@ export default function Navbar({ onMenuClick }) {
         <Menu size={22} />
       </button>
 
-      {/* Search */}
-      <form onSubmit={handleSearch} className="flex-1 max-w-lg">
-        <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search colleges, branches..."
-            className="form-input pl-9 py-2 text-sm bg-slate-50"
-          />
-        </div>
-      </form>
-
       <div className="flex items-center gap-3 ml-auto">
-        {/* Notification bell */}
-        <button className="relative w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors">
-          <Bell size={18} className="text-slate-500" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500" />
-        </button>
-
         {/* Profile */}
         {user ? (
           <div className="relative">

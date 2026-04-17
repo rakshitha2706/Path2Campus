@@ -1,9 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { eapcetAPI, josaaAPI } from '../api';
-import { MapPin, ArrowLeft, Loader2, IndianRupee, Shield, Building2, TrendingUp } from 'lucide-react';
+import {
+  MapPin,
+  ArrowLeft,
+  Loader2,
+  IndianRupee,
+  Shield,
+  Building2,
+  TrendingUp,
+  LocateFixed,
+} from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
+import {
+  buildCollegeLocationQuery,
+  calculateDistanceKm,
+  geocodeLocation,
+  getCurrentPosition,
+} from '../utils/location';
 
 export default function CollegeDetail() {
   const { id, exam } = useParams();
@@ -11,6 +26,9 @@ export default function CollegeDetail() {
 
   const [college, setCollege] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [distanceKm, setDistanceKm] = useState(null);
+  const [distanceLoading, setDistanceLoading] = useState(false);
+  const [distanceError, setDistanceError] = useState('');
 
   useEffect(() => {
     const fetchCollege = async () => {
@@ -18,7 +36,7 @@ export default function CollegeDetail() {
         const api = exam === 'eapcet' ? eapcetAPI : josaaAPI;
         const response = await api.getCollege(id);
         setCollege(response.data);
-      } catch (error) {
+      } catch {
         toast.error('Failed to load college details.');
       } finally {
         setLoading(false);
@@ -27,6 +45,34 @@ export default function CollegeDetail() {
 
     fetchCollege();
   }, [id, exam]);
+
+  const loadDistance = async () => {
+    if (!college) {
+      return;
+    }
+
+    setDistanceLoading(true);
+    setDistanceError('');
+
+    try {
+      const userLocation = await getCurrentPosition();
+      const collegeQuery = buildCollegeLocationQuery(college, exam);
+      const collegeLocation = await geocodeLocation(collegeQuery);
+      const kms = calculateDistanceKm(userLocation, collegeLocation);
+      setDistanceKm(kms);
+      toast.success('Distance calculated from your current location.');
+    } catch (error) {
+      const message =
+        error?.code === 1
+          ? 'Location permission was denied.'
+          : 'Could not calculate the college distance right now.';
+
+      setDistanceError(message);
+      toast.error(message);
+    } finally {
+      setDistanceLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -42,7 +88,7 @@ export default function CollegeDetail() {
 
   const name = exam === 'eapcet' ? college.institute_name : college.institute;
   const branch = exam === 'eapcet' ? college.branch_name : college.program_name;
-  const place = exam === 'eapcet' ? college.place : college.institute_type;
+  const place = exam === 'eapcet' ? college.place || college.dist_code : college.institute_type;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -58,10 +104,15 @@ export default function CollegeDetail() {
           <div>
             <h1 className="text-2xl font-bold text-slate-800 mb-2">{name}</h1>
             <p className="text-slate-600 font-medium mb-4">{branch}</p>
-            <div className="flex items-center gap-4 text-sm text-slate-500">
+            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
               <span className="flex items-center gap-1">
                 <MapPin size={16} /> {place}
               </span>
+              {exam === 'eapcet' && college.dist_code && (
+                <span className="flex items-center gap-1">
+                  <Building2 size={16} /> District: {college.dist_code}
+                </span>
+              )}
               {exam === 'josaa' && (
                 <span className="flex items-center gap-1">
                   <Building2 size={16} /> {college.institute_type}
@@ -74,13 +125,34 @@ export default function CollegeDetail() {
               )}
             </div>
           </div>
-          {exam === 'eapcet' && college.roi && (
-            <div className="text-center bg-emerald-50 border border-emerald-100 rounded-xl p-3 min-w-[120px]">
-              <div className="text-xs text-emerald-600 font-bold uppercase mb-1">Estimated ROI</div>
-              <div className="text-2xl font-black text-emerald-700">{college.roi}x</div>
-              <div className="text-[10px] text-emerald-600 mt-1">Return on Fees</div>
-            </div>
-          )}
+          <div className="flex flex-col items-stretch gap-3 min-w-[220px]">
+            <button
+              onClick={loadDistance}
+              disabled={distanceLoading}
+              className="btn-secondary flex items-center justify-center gap-2 text-sm disabled:opacity-70"
+            >
+              {distanceLoading ? <Loader2 size={16} className="animate-spin" /> : <LocateFixed size={16} />}
+              {distanceLoading ? 'Finding Distance...' : 'Use My GPS Location'}
+            </button>
+
+            {distanceKm != null && (
+              <div className="text-center bg-blue-50 border border-blue-100 rounded-xl p-3">
+                <div className="text-xs text-blue-600 font-bold uppercase mb-1">Distance From You</div>
+                <div className="text-2xl font-black text-blue-700">{distanceKm.toFixed(1)} km</div>
+                <div className="text-[10px] text-blue-600 mt-1">Calculated from your live browser location</div>
+              </div>
+            )}
+
+            {distanceError && <p className="text-xs text-rose-500 text-center">{distanceError}</p>}
+
+            {exam === 'eapcet' && college.roi && (
+              <div className="text-center bg-emerald-50 border border-emerald-100 rounded-xl p-3">
+                <div className="text-xs text-emerald-600 font-bold uppercase mb-1">Estimated ROI</div>
+                <div className="text-2xl font-black text-emerald-700">{college.roi}x</div>
+                <div className="text-[10px] text-emerald-600 mt-1">Return on fees</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -101,7 +173,7 @@ export default function CollegeDetail() {
                 <div>
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">College Type</div>
                   <div className="text-sm font-medium text-slate-800">
-                    {college.college_type} ({college.co_education})
+                    {college.college_type || 'N/A'} {college.co_education ? `(${college.co_education})` : ''}
                   </div>
                 </div>
                 {college.year_of_estab && (
@@ -130,7 +202,9 @@ export default function CollegeDetail() {
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                     Last Round Cutoff
                   </div>
-                  <div className="text-lg font-bold text-slate-800">{college.closing_rank?.toLocaleString() || 'N/A'}</div>
+                  <div className="text-lg font-bold text-slate-800">
+                    {college.closing_rank?.toLocaleString() || 'N/A'}
+                  </div>
                 </div>
               </>
             )}
@@ -160,7 +234,9 @@ export default function CollegeDetail() {
                     const boysValue = college.cutoffs?.[boysKey];
                     const girlsValue = college.cutoffs?.[girlsKey];
 
-                    if (!boysValue && !girlsValue) return null;
+                    if (!boysValue && !girlsValue) {
+                      return null;
+                    }
 
                     return (
                       <tr key={category} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
@@ -187,7 +263,13 @@ export default function CollegeDetail() {
                     axisLine={false}
                     tickLine={false}
                   />
-                  <YAxis reversed domain={['auto', 'auto']} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    reversed
+                    domain={['auto', 'auto']}
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <Tooltip
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                     labelFormatter={(value) => `Round ${value}`}

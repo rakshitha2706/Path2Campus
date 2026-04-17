@@ -1,11 +1,65 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, GraduationCap, MapPin, ChevronRight, ArrowLeft, Download, Share2, Sparkles } from 'lucide-react';
+import { Search, ArrowLeft, Download, Share2, GitCompare } from 'lucide-react';
+import toast from 'react-hot-toast';
+import CollegeCard from '../components/CollegeCard';
+import { collegesAPI } from '../api';
+import { useAuth } from '../context/AuthContext';
+import { getCompareState, toggleCompareCollege } from '../utils/compare';
 
 export default function Results() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { results, exam, formData } = location.state || {};
+  const [savedIds, setSavedIds] = useState(() => new Set());
+  const [compareState, setCompareState] = useState(() => getCompareState());
+
+  const colleges = useMemo(() => {
+    if (!results) {
+      return [];
+    }
+
+    return (results.colleges || [
+      ...(results.safe || []),
+      ...(results.target || []),
+      ...(results.dream || []),
+    ])
+      .slice()
+      .sort((a, b) => {
+        const rankA = Number(a?.closing_rank ?? Number.MAX_SAFE_INTEGER);
+        const rankB = Number(b?.closing_rank ?? Number.MAX_SAFE_INTEGER);
+        return rankA - rankB;
+      });
+  }, [results]);
+
+  React.useEffect(() => {
+    let ignore = false;
+
+    const loadSaved = async () => {
+      if (!user) {
+        setSavedIds(new Set());
+        return;
+      }
+
+      try {
+        const response = await collegesAPI.getSaved();
+        const ids = new Set((response.data?.[exam] || []).map((college) => college._id));
+        if (!ignore) {
+          setSavedIds(ids);
+        }
+      } catch {
+        if (!ignore) {
+          setSavedIds(new Set());
+        }
+      }
+    };
+
+    loadSaved();
+    return () => {
+      ignore = true;
+    };
+  }, [exam, user]);
 
   if (!results) {
     return (
@@ -20,15 +74,126 @@ export default function Results() {
     );
   }
 
-  const colleges = (results.colleges || [
-    ...(results.safe || []),
-    ...(results.target || []),
-    ...(results.dream || []),
-  ]).slice().sort((a, b) => {
-    const rankA = Number(a?.closing_rank ?? Number.MAX_SAFE_INTEGER);
-    const rankB = Number(b?.closing_rank ?? Number.MAX_SAFE_INTEGER);
-    return rankA - rankB;
-  });
+  const activeCompare = compareState.exam === exam ? compareState.colleges : [];
+
+  const handleSave = async (college) => {
+    if (!user) {
+      toast.error('Please sign in to save colleges.');
+      navigate('/login');
+      return;
+    }
+
+    const isSaved = savedIds.has(college._id);
+
+    try {
+      if (isSaved) {
+        await collegesAPI.unsave(exam, college._id);
+        setSavedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(college._id);
+          return next;
+        });
+        toast.success('Removed from saved colleges.');
+      } else {
+        await collegesAPI.save(exam, college._id);
+        setSavedIds((prev) => new Set([...prev, college._id]));
+        toast.success('College saved.');
+      }
+    } catch {
+      toast.error('Could not update saved colleges.');
+    }
+  };
+
+  const handleCompare = (college) => {
+    const nextState = toggleCompareCollege(exam, college);
+    setCompareState(nextState);
+
+    if (nextState.exam !== exam) {
+      toast.error('Please compare colleges from the same exam.');
+      return;
+    }
+
+    if (nextState.colleges.some((item) => item._id === college._id)) {
+      toast.success(`Compare list: ${nextState.colleges.length}/2`);
+    } else {
+      toast.success('Removed from compare list.');
+    }
+  };
+
+  const openCompare = () => {
+    if (activeCompare.length < 2) {
+      toast.error('Select 2 colleges to compare.');
+      return;
+    }
+
+    navigate('/compare', {
+      state: {
+        exam,
+        colleges: activeCompare,
+      },
+    });
+  };
+
+  const handleExport = () => {
+    const rows = colleges.map((college) => ({
+      institute: exam === 'eapcet' ? college.institute_name : college.institute,
+      branch: exam === 'eapcet' ? college.branch_name : college.program_name,
+      closing_rank: college.closing_rank ?? '',
+      district: college.dist_code ?? '',
+      place: college.place ?? '',
+      type: college.college_type || college.institute_type || '',
+      probability: college.admission_probability ?? '',
+      fit_score: college.fit_score ?? '',
+    }));
+
+    const header = Object.keys(rows[0] || {
+      institute: '',
+      branch: '',
+      closing_rank: '',
+      district: '',
+      place: '',
+      type: '',
+      probability: '',
+      fit_score: '',
+    });
+
+    const csv = [
+      header.join(','),
+      ...rows.map((row) =>
+        header
+          .map((key) => `"${String(row[key] ?? '').replaceAll('"', '""')}"`)
+          .join(',')
+      ),
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${exam}-results.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('Results exported.');
+  };
+
+  const handleShare = async () => {
+    const shareText = `Path2Campus ${exam === 'eapcet' ? 'TG EAPCET' : 'JoSAA'} results for rank ${formData?.rank}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Path2Campus Results',
+          text: shareText,
+          url: window.location.href,
+        });
+      } else {
+        await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+        toast.success('Results link copied to clipboard.');
+      }
+    } catch {
+      toast.error('Could not share results right now.');
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto pb-20">
@@ -40,7 +205,7 @@ export default function Results() {
           >
             <ArrowLeft size={16} /> Edit Filters
           </button>
-          <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
+          <h1 className="text-3xl font-extrabold text-slate-900">
             {exam === 'eapcet' ? 'TG EAPCET' : 'JoSAA'} Recommendations
           </h1>
           <div className="flex flex-wrap items-center gap-3 mt-3">
@@ -48,99 +213,59 @@ export default function Results() {
             <span className="badge bg-violet-50 text-violet-600 border-violet-100">
               Category: {formData?.category || formData?.seat_type}
             </span>
-            <span className="badge bg-slate-50 text-slate-500 border-slate-200">Total: {results.total} matches</span>
+            {exam === 'eapcet' && formData?.district && (
+              <span className="badge bg-emerald-50 text-emerald-700 border-emerald-100">
+                District: {formData.district}
+              </span>
+            )}
+            <span className="badge bg-slate-50 text-slate-500 border-slate-200">
+              Total: {results.total ?? colleges.length} matches
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="btn-secondary py-2 px-4 text-sm flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={openCompare}
+            className="btn-primary py-2 px-4 text-sm flex items-center gap-2"
+          >
+            <GitCompare size={16} /> Compare ({activeCompare.length}/2)
+          </button>
+          <button
+            onClick={handleExport}
+            className="btn-secondary py-2 px-4 text-sm flex items-center gap-2"
+          >
             <Download size={16} /> Export
           </button>
-          <button className="btn-secondary py-2 px-4 text-sm flex items-center gap-2">
+          <button
+            onClick={handleShare}
+            className="btn-secondary py-2 px-4 text-sm flex items-center gap-2"
+          >
             <Share2 size={16} /> Share
           </button>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {colleges.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
-            <div className="text-5xl mb-4">:(</div>
-            <p className="text-slate-600 font-bold text-lg">No eligible colleges found.</p>
-            <p className="text-slate-400 text-sm mt-1">Try increasing your rank or changing branch preferences.</p>
-          </div>
-        ) : (
-          <div className="grid lg:grid-cols-1 gap-4">
-            {colleges.map((college, index) => (
-              <div
-                key={college._id || index}
-                onClick={() => navigate(`/${exam}/college/${college._id}`)}
-                className="group relative bg-white border border-slate-100 p-5 rounded-2xl hover:shadow-xl hover:border-blue-200 transition-all cursor-pointer animate-fade-in"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <div className="flex flex-col md:flex-row justify-between gap-4">
-                  <div className="flex gap-4">
-                    <div className="w-14 h-14 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors flex-shrink-0">
-                      <GraduationCap size={28} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors text-lg leading-tight mb-1">
-                        {exam === 'eapcet' ? college.institute_name : college.institute}
-                      </h3>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
-                        <span className="flex items-center gap-1">
-                          <Sparkles size={14} className="text-blue-400" /> {college.branch_name || college.program_name}
-                        </span>
-                        {college.place && (
-                          <span className="flex items-center gap-1">
-                            <MapPin size={14} /> {college.place}
-                          </span>
-                        )}
-                        {college.institute_type && (
-                          <span className="badge bg-slate-100 text-slate-600 border-none px-2 py-0.5 text-[10px]">
-                            {college.institute_type}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-6 md:border-l border-slate-50 md:pl-6">
-                    <div className="text-center">
-                      <div className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Closing Rank</div>
-                      <div className="text-xl font-black text-slate-900">{college.closing_rank}</div>
-                    </div>
-                    {exam === 'eapcet' && (
-                      <div className="text-center">
-                        <div className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Tuition Fee</div>
-                        <div className="text-sm font-bold text-slate-700">
-                          {college.tuition_fee ? `Rs ${(college.tuition_fee / 1000).toFixed(1)}K` : 'N/A'}
-                        </div>
-                      </div>
-                    )}
-                    <div className="text-center">
-                      <div className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Probability</div>
-                      <div
-                        className={`text-sm font-bold ${
-                          college.admission_probability > 70
-                            ? 'text-emerald-600'
-                            : college.admission_probability > 40
-                              ? 'text-orange-500'
-                              : 'text-rose-500'
-                        }`}
-                      >
-                        {college.admission_probability}%
-                      </div>
-                    </div>
-                    <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                      <ChevronRight size={20} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {colleges.length === 0 ? (
+        <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+          <div className="text-5xl mb-4">:(</div>
+          <p className="text-slate-600 font-bold text-lg">No eligible colleges found.</p>
+          <p className="text-slate-400 text-sm mt-1">Try changing the filters and search again.</p>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {colleges.map((college) => (
+            <CollegeCard
+              key={college._id}
+              college={college}
+              exam={exam}
+              onSave={handleSave}
+              onCompare={handleCompare}
+              isSaved={savedIds.has(college._id)}
+              isCompared={activeCompare.some((item) => item._id === college._id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,106 +1,216 @@
 const express = require('express');
 const router = express.Router();
+const Groq = require('groq-sdk');
 const EapcetCollege = require('../models/EapcetCollege');
 const JosaCollege = require('../models/JosaCollege');
 
-// POST /api/chatbot
-// Simple NLP-style filtering chatbot
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
+
+const DEFAULT_GROQ_MODELS = [
+  process.env.GROQ_MODEL,
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+].filter(Boolean);
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function createGroqCompletion(payload) {
+  let lastError = null;
+
+  for (const model of DEFAULT_GROQ_MODELS) {
+    try {
+      return await groq.chat.completions.create({
+        ...payload,
+        model,
+      });
+    } catch (error) {
+      lastError = error;
+      const isModelError =
+        error?.status === 404 ||
+        error?.error?.error?.code === 'model_not_found' ||
+        error?.error?.code === 'model_not_found';
+
+      if (!isModelError) throw error;
+    }
+  }
+
+  throw lastError;
+}
+
 router.post('/', async (req, res) => {
   try {
     const { message, exam = 'eapcet' } = req.body;
-    const msg = message.toLowerCase();
+    console.log('Chatbot received:', message, 'Exam context:', exam);
 
-    // Extract rank
-    const rankMatch = msg.match(/rank[^\d]*(\d+)/);
-    const rank = rankMatch ? parseInt(rankMatch[1]) : null;
-
-    // Extract budget (only for eapcet)
-    const budgetMatch = msg.match(/(\d+)\s*k?\s*(lakh|lac|l)?/);
-    let budget = null;
-    if (budgetMatch && exam === 'eapcet') {
-      budget = budgetMatch[2] ? parseInt(budgetMatch[1]) * 100000 : parseInt(budgetMatch[1]) * 1000;
+    if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'your_groq_api_key_here') {
+      return res.status(400).json({
+        message: 'Groq API key not configured.',
+      });
     }
 
-    // Extract branch keywords
-    const branchKeywords = {
-      'cse': 'COMPUTER SCIENCE',
-      'computer science': 'COMPUTER SCIENCE',
-      'ece': 'ELECTRONICS AND COMMUNICATION',
-      'electronics': 'ELECTRONICS AND COMMUNICATION',
-      'mechanical': 'MECHANICAL',
-      'civil': 'CIVIL',
-      'eee': 'ELECTRICAL AND ELECTRONICS',
-      'it': 'INFORMATION TECHNOLOGY',
-      'ai': 'ARTIFICIAL INTELLIGENCE',
-    };
-    let branch = null;
-    for (const [kw, branchName] of Object.entries(branchKeywords)) {
-      if (msg.includes(kw)) { branch = branchName; break; }
+    const analysisCompletion = await createGroqCompletion({
+      messages: [
+        {
+          role: 'system',
+          content: `You are an intelligent assistant for Path2Campus.
+Extract parameters for college search. Always return a valid JSON object.
+
+JSON Format:
+{
+  "intent": "search" | "general",
+  "answer": "string (only if intent is general)",
+  "params": {
+    "rank": number | null,
+    "category": string | null,
+    "branch": string | null,
+    "gender": "Male" | "Female" | "Gender-Neutral",
+    "exam": "eapcet" | "josaa",
+    "place": string | null,
+    "district": string | null,
+    "college_type": string | null,
+    "institute_type": string | null
+  }
+}`,
+        },
+        {
+          role: 'user',
+          content: message,
+        },
+      ],
+      response_format: { type: 'json_object' },
+    });
+
+    const content = analysisCompletion.choices[0].message.content;
+    const parsed = JSON.parse(content);
+    const { intent, answer, params } = parsed;
+
+    if (intent === 'general') {
+      return res.json({ response: answer, colleges: [], parsedQuery: params });
     }
 
-    // Extract category
-    const categories = ['oc', 'bc_a', 'bc_b', 'bc_c', 'bc_d', 'bc_e', 'sc', 'st', 'ews'];
-    let category = 'OC';
-    for (const cat of categories) {
-      if (msg.includes(cat)) { category = cat.toUpperCase(); break; }
-    }
+    const {
+      rank,
+      category,
+      branch,
+      gender,
+      exam: detectedExam,
+      place,
+      district,
+      college_type,
+      institute_type,
+    } = params;
 
-    // Response
-    let response = '';
+    const finalExam = detectedExam || exam;
+    const normalizedGender = gender === 'Female' ? 'Female' : 'Male';
     let colleges = [];
 
-    if (exam === 'eapcet') {
+    if (finalExam === 'eapcet') {
       const query = {};
-      if (branch) query.branch_name = { $regex: branch, $options: 'i' };
-      if (budget) query.tuition_fee = { $lte: budget };
+      if (branch?.trim()) query.branch_name = { $regex: `^${escapeRegex(branch.trim())}$`, $options: 'i' };
+      if (place?.trim()) query.place = { $regex: `^${escapeRegex(place.trim())}$`, $options: 'i' };
+      if (district?.trim()) query.dist_code = district.trim().toUpperCase();
+      if (college_type?.trim()) query.college_type = { $regex: `^${escapeRegex(college_type.trim())}$`, $options: 'i' };
 
-      const all = await EapcetCollege.find(query).limit(200);
-      const gKey = 'BOYS';
-      const filtered = all.filter(c => {
-        const key = category === 'EWS' ? 'EWS_GEN_OU' : `${category}_${gKey}`;
-        const cr = c.cutoffs[key];
-        if (!cr) return false;
-        if (rank) return cr >= rank;
+      const all = await EapcetCollege.find(query);
+      const gKey = normalizedGender === 'Female' ? 'GIRLS' : 'BOYS';
+      const cat = (category || 'OC').toUpperCase();
+
+      const filtered = all.filter((college) => {
+        const key =
+          cat === 'EWS'
+            ? normalizedGender === 'Female'
+              ? 'EWS_GIRLS_OU'
+              : 'EWS_GEN_OU'
+            : `${cat}_${gKey}`;
+
+        const cutoffRank = college.cutoffs[key];
+        if (!cutoffRank) return false;
+        if (rank) return cutoffRank >= rank;
         return true;
-      }).slice(0, 10);
+      });
 
-      colleges = filtered.map(c => ({
-        _id: c._id,
-        institute_name: c.institute_name,
-        branch_name: c.branch_name,
-        place: c.place,
-        tuition_fee: c.tuition_fee,
+      filtered.sort((a, b) => {
+        const key =
+          cat === 'EWS'
+            ? normalizedGender === 'Female'
+              ? 'EWS_GIRLS_OU'
+              : 'EWS_GEN_OU'
+            : `${cat}_${gKey}`;
+
+        return a.cutoffs[key] - b.cutoffs[key];
+      });
+
+      colleges = filtered.slice(0, 10).map((college) => ({
+        _id: college._id,
+        institute_name: college.institute_name,
+        branch_name: college.branch_name,
+        place: college.place,
+        tuition_fee: college.tuition_fee,
+        cutoff:
+          cat === 'EWS'
+            ? normalizedGender === 'Female'
+              ? college.cutoffs.EWS_GIRLS_OU
+              : college.cutoffs.EWS_GEN_OU
+            : college.cutoffs[`${cat}_${gKey}`],
       }));
-
-      if (rank) response = `Found ${colleges.length} EAPCET colleges you can get with rank ${rank}`;
-      else if (budget) response = `Found ${colleges.length} EAPCET colleges under ₹${budget.toLocaleString()} fees`;
-      else response = `Here are some EAPCET colleges matching your query`;
     } else {
-      const query = {};
-      if (branch) query.program_name = { $regex: branch, $options: 'i' };
-      const all = await JosaCollege.find(query).limit(200);
-      const filtered = all.filter(c => {
-        if (!c.closing_rank) return false;
-        if (rank) return c.closing_rank >= rank;
+      const query = {
+        gender: normalizedGender === 'Female' ? 'Female-only (including Supernumerary)' : 'Gender-Neutral',
+      };
+
+      if (branch?.trim()) query.program_name = { $regex: `^${escapeRegex(branch.trim())}$`, $options: 'i' };
+      if (institute_type?.trim()) query.institute_type = { $regex: `^${escapeRegex(institute_type.trim())}$`, $options: 'i' };
+
+      const cat = (category || 'OPEN').toUpperCase();
+      query.seat_type =
+        cat === 'OPEN'
+          ? 'OPEN'
+          : { $regex: `^${escapeRegex(cat)}(?:\\s*\\(.*\\))?$`, $options: 'i' };
+
+      const all = await JosaCollege.find(query).sort({ closing_rank: 1 });
+      const filtered = all.filter((college) => {
+        if (!college.closing_rank) return false;
+        if (rank) return college.closing_rank >= rank;
         return true;
-      }).slice(0, 10);
+      });
 
-      colleges = filtered.map(c => ({
-        _id: c._id,
-        institute: c.institute,
-        program_name: c.program_name,
-        closing_rank: c.closing_rank,
-        institute_type: c.institute_type,
+      colleges = filtered.slice(0, 10).map((college) => ({
+        _id: college._id,
+        institute: college.institute,
+        program_name: college.program_name,
+        closing_rank: college.closing_rank,
+        institute_type: college.institute_type,
       }));
-
-      if (rank) response = `Found ${colleges.length} JoSAA colleges you can get with rank ${rank}`;
-      else response = `Here are some JoSAA colleges matching your query`;
     }
 
-    res.json({ response, colleges, parsedQuery: { rank, branch, category, budget } });
+    const summaryCompletion = await createGroqCompletion({
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a friendly Path2Campus assistant. Summarize search results in 2-3 sentences.',
+        },
+        {
+          role: 'user',
+          content: `User query: "${message}". Found ${colleges.length} colleges. Results: ${JSON.stringify(colleges.slice(0, 3))}`,
+        },
+      ],
+    });
+
+    res.json({
+      response: summaryCompletion.choices[0].message.content,
+      colleges,
+      parsedQuery: { ...params, exam: finalExam },
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Chatbot error', error: err.message });
+    console.error('Groq Error:', err);
+    res.status(500).json({
+      message: 'Chatbot error',
+      details: err?.error?.error?.message || err.message,
+    });
   }
 });
 

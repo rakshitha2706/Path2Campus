@@ -9,7 +9,8 @@ api.interceptors.request.use(cfg => {
 });
 
 export const authAPI = {
-  googleLogin: (credential) => api.post('/auth/google', { credential }),
+  signup: (data) => api.post('/auth/signup', data),
+  login: (data) => api.post('/auth/login', data),
   me: () => api.get('/auth/me'),
 };
 
@@ -19,6 +20,7 @@ export const eapcetAPI = {
   getCollege: (id) => api.get(`/eapcet/colleges/${id}`),
   getBranches: () => api.get('/eapcet/branches'),
   getPlaces: () => api.get('/eapcet/places'),
+  getDistricts: () => api.get('/eapcet/districts'),
 };
 
 export const josaaAPI = {

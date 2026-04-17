@@ -180,3 +180,11 @@ body {
   margin-bottom: 6px;
   display: block;
 }
+
+/* Chatbot Markdown Styles */
+.prose-sm p { margin-bottom: 0.75rem; line-height: 1.6; }
+.prose-sm p:last-child { margin-bottom: 0; }
+.prose-sm ul, .prose-sm ol { margin-bottom: 0.75rem; padding-left: 1.25rem; }
+.prose-sm li { margin-bottom: 0.25rem; }
+.prose-sm strong { font-weight: 700; color: #1e293b; }
+.prose-sm code { background: #f1f5f9; padding: 2px 4px; border-radius: 4px; font-size: 0.85em; }

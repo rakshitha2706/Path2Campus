@@ -74,13 +74,6 @@ export default function CollegeDetail() {
               )}
             </div>
           </div>
-          {exam === 'eapcet' && college.roi && (
-            <div className="text-center bg-emerald-50 border border-emerald-100 rounded-xl p-3 min-w-[120px]">
-              <div className="text-xs text-emerald-600 font-bold uppercase mb-1">Estimated ROI</div>
-              <div className="text-2xl font-black text-emerald-700">{college.roi}x</div>
-              <div className="text-[10px] text-emerald-600 mt-1">Return on Fees</div>
-            </div>
-          )}
         </div>
       </div>
 

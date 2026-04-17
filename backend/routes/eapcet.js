@@ -2,8 +2,6 @@ const express = require('express');
 const router = express.Router();
 const EapcetCollege = require('../models/EapcetCollege');
 
-const AVG_PACKAGE = 450000;
-
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -27,11 +25,6 @@ function classify(userRank, closingRank) {
 function probability(userRank, closingRank) {
   if (!closingRank || closingRank === 0) return 0;
   return Math.max(0, Math.min(100, Math.round(((closingRank - userRank) / closingRank) * 100)));
-}
-
-function calcROI(tuitionFee) {
-  if (!tuitionFee || tuitionFee === 0) return null;
-  return parseFloat((AVG_PACKAGE / tuitionFee).toFixed(2));
 }
 
 function fitScore(college, userRank, closingRank, budget) {
@@ -74,6 +67,9 @@ router.post('/recommend', async (req, res) => {
       const classification = classify(userRank, closingRank);
       if (!classification) continue;
 
+      const admissionProbability = probability(userRank, closingRank);
+      if (admissionProbability === 0) continue;
+
       results.push({
         _id: college._id,
         institute_name: college.institute_name,
@@ -85,9 +81,8 @@ router.post('/recommend', async (req, res) => {
         closing_rank: closingRank,
         category,
         gender,
-        admission_probability: probability(userRank, closingRank),
+        admission_probability: admissionProbability,
         fit_score: fitScore(college, userRank, closingRank, parsedBudget),
-        roi: calcROI(college.tuition_fee),
         classification,
         year_of_estab: college.year_of_estab,
       });
@@ -126,7 +121,7 @@ router.get('/colleges/:id', async (req, res) => {
   try {
     const college = await EapcetCollege.findById(req.params.id);
     if (!college) return res.status(404).json({ message: 'College not found' });
-    res.json({ ...college.toObject(), roi: calcROI(college.tuition_fee) });
+    res.json(college.toObject());
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

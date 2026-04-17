@@ -60,6 +60,9 @@ router.post('/recommend', async (req, res) => {
       const classification = classify(userRank, closingRank);
       if (!classification) continue;
 
+      const admissionProbability = probability(userRank, closingRank);
+      if (admissionProbability === 0) continue;
+
       results.push({
         _id: college._id,
         institute: college.institute,
@@ -71,7 +74,7 @@ router.post('/recommend', async (req, res) => {
         closing_rank: closingRank,
         institute_type: college.institute_type,
         round: college.round,
-        admission_probability: probability(userRank, closingRank),
+        admission_probability: admissionProbability,
         fit_score: fitScore(college, userRank, closingRank),
         classification,
       });

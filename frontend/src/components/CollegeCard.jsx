@@ -108,13 +108,6 @@ export default function CollegeCard({
         </div>
       </div>
 
-      {/* ROI badge (EAPCET only) */}
-      {exam === 'eapcet' && college.roi && (
-        <div className="flex items-center gap-1.5 mb-4 text-xs text-emerald-700 font-semibold bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
-          <IndianRupee size={12} /> ROI: {college.roi}x return on fees
-        </div>
-      )}
-
       {/* Actions */}
       <div className="flex gap-2 pt-2 border-t border-slate-100">
         <button

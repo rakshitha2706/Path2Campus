@@ -1,7 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { eapcetAPI, josaaAPI } from '../api';
-import { MapPin, ArrowLeft, Loader2, IndianRupee, Shield, Building2, TrendingUp } from 'lucide-react';
+import {
+  MapPin,
+  ArrowLeft,
+  Loader2,
+  IndianRupee,
+  Shield,
+  Building2,
+  TrendingUp,
+} from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
 
@@ -18,7 +26,7 @@ export default function CollegeDetail() {
         const api = exam === 'eapcet' ? eapcetAPI : josaaAPI;
         const response = await api.getCollege(id);
         setCollege(response.data);
-      } catch (error) {
+      } catch {
         toast.error('Failed to load college details.');
       } finally {
         setLoading(false);
@@ -42,7 +50,7 @@ export default function CollegeDetail() {
 
   const name = exam === 'eapcet' ? college.institute_name : college.institute;
   const branch = exam === 'eapcet' ? college.branch_name : college.program_name;
-  const place = exam === 'eapcet' ? college.place : college.institute_type;
+  const place = exam === 'eapcet' ? college.place || college.dist_code : college.institute_type;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -58,10 +66,15 @@ export default function CollegeDetail() {
           <div>
             <h1 className="text-2xl font-bold text-slate-800 mb-2">{name}</h1>
             <p className="text-slate-600 font-medium mb-4">{branch}</p>
-            <div className="flex items-center gap-4 text-sm text-slate-500">
+            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
               <span className="flex items-center gap-1">
                 <MapPin size={16} /> {place}
               </span>
+              {exam === 'eapcet' && college.dist_code && (
+                <span className="flex items-center gap-1">
+                  <Building2 size={16} /> District: {college.dist_code}
+                </span>
+              )}
               {exam === 'josaa' && (
                 <span className="flex items-center gap-1">
                   <Building2 size={16} /> {college.institute_type}
@@ -94,7 +107,7 @@ export default function CollegeDetail() {
                 <div>
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">College Type</div>
                   <div className="text-sm font-medium text-slate-800">
-                    {college.college_type} ({college.co_education})
+                    {college.college_type || 'N/A'} {college.co_education ? `(${college.co_education})` : ''}
                   </div>
                 </div>
                 {college.year_of_estab && (
@@ -123,7 +136,9 @@ export default function CollegeDetail() {
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                     Last Round Cutoff
                   </div>
-                  <div className="text-lg font-bold text-slate-800">{college.closing_rank?.toLocaleString() || 'N/A'}</div>
+                  <div className="text-lg font-bold text-slate-800">
+                    {college.closing_rank?.toLocaleString() || 'N/A'}
+                  </div>
                 </div>
               </>
             )}
@@ -153,7 +168,9 @@ export default function CollegeDetail() {
                     const boysValue = college.cutoffs?.[boysKey];
                     const girlsValue = college.cutoffs?.[girlsKey];
 
-                    if (!boysValue && !girlsValue) return null;
+                    if (!boysValue && !girlsValue) {
+                      return null;
+                    }
 
                     return (
                       <tr key={category} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
@@ -180,7 +197,13 @@ export default function CollegeDetail() {
                     axisLine={false}
                     tickLine={false}
                   />
-                  <YAxis reversed domain={['auto', 'auto']} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    reversed
+                    domain={['auto', 'auto']}
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <Tooltip
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                     labelFormatter={(value) => `Round ${value}`}

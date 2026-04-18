@@ -112,6 +112,13 @@ Our platform's brain functions on a strict distance ratio metric to ensure accur
 3. **Probability:** `Probability = Max(0, Min(100, Ratio * 100))`
 
 ---
+Architecture Diagram
+<img width="1408" height="768" alt="Gemini_Generated_Image_rhtv8drhtv8drhtv" src="https://github.com/user-attachments/assets/defc34d9-7949-4c34-84d4-2ee3833b6089" />
+
+
+
+
+---
 
 ## 🚀 Installation & Running Locally
 

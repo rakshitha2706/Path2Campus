@@ -98,9 +98,6 @@ export default function Landing() {
           <button onClick={() => navigate('/search')} className="btn-primary gap-2 flex items-center text-base px-8 py-3.5 animate-pulse-glow">
             Find Your College <ArrowRight size={18} />
           </button>
-          <button onClick={() => navigate('/dashboard')} className="btn-secondary flex items-center gap-2 text-base px-8 py-3.5">
-            View Analytics
-          </button>
         </div>
 
         {/* Stats */}

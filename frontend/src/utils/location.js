@@ -1,3 +1,5 @@
+import api from '../api';
+
 const GEOCODE_CACHE_KEY = 'p2c_geocode_cache';
 
 function readGeocodeCache() {
@@ -12,58 +14,61 @@ function writeGeocodeCache(cache) {
   localStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(cache));
 }
 
-export function buildCollegeLocationQuery(college, exam) {
+export function buildCollegeLocationQueries(college, exam) {
   if (exam === 'eapcet') {
     return [
-      college?.institute_name,
-      college?.place,
-      college?.dist_code,
-      'Telangana',
-      'India',
+      [college?.institute_name, college?.place, 'Telangana', 'India'],
+      [college?.institute_name, college?.place, 'India'],
+      [college?.institute_name, 'Telangana', 'India'],
+      [college?.institute_name, 'India'],
     ]
-      .filter(Boolean)
-      .join(', ');
+      .map((parts) => parts.filter(Boolean).join(', '))
+      .filter(Boolean);
   }
 
-  return [college?.institute, 'India'].filter(Boolean).join(', ');
+  return [
+    [college?.institute, 'India'],
+    [college?.institute, college?.institute_type, 'India'],
+  ]
+    .map((parts) => parts.filter(Boolean).join(', '))
+    .filter(Boolean);
 }
 
-export async function geocodeLocation(query) {
-  if (!query) {
+export async function geocodeLocation(queries) {
+  const queryList = Array.isArray(queries) ? queries.filter(Boolean) : [queries].filter(Boolean);
+
+  if (!queryList.length) {
     throw new Error('Missing location query');
   }
 
   const cache = readGeocodeCache();
-  if (cache[query]) {
-    return cache[query];
+
+  for (const query of queryList) {
+    if (cache[query]) {
+      return cache[query];
+    }
   }
 
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`;
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-    },
-  });
+  for (const query of queryList) {
+    try {
+      const response = await api.get('/location/geocode', { params: { query } });
+      const coords = {
+        latitude: Number(response.data.latitude),
+        longitude: Number(response.data.longitude),
+        query,
+      };
 
-  if (!response.ok) {
-    throw new Error('Failed to geocode location');
+      cache[query] = coords;
+      writeGeocodeCache(cache);
+      return coords;
+    } catch (error) {
+      if (error?.response?.status && error.response.status < 500 && error.response.status !== 429) {
+        continue;
+      }
+    }
   }
 
-  const results = await response.json();
-  const match = results?.[0];
-
-  if (!match) {
-    throw new Error('No coordinates found');
-  }
-
-  const coords = {
-    latitude: Number(match.lat),
-    longitude: Number(match.lon),
-  };
-
-  cache[query] = coords;
-  writeGeocodeCache(cache);
-  return coords;
+  throw new Error('No coordinates found');
 }
 
 export function getCurrentPosition() {
@@ -88,6 +93,23 @@ export function getCurrentPosition() {
       }
     );
   });
+}
+
+export function getGeolocationErrorMessage(error) {
+  if (!error) {
+    return 'Could not access your location';
+  }
+
+  switch (error.code) {
+    case 1:
+      return 'Location permission was denied. Please allow location access in your browser.';
+    case 2:
+      return 'Your location could not be determined right now. Please try again.';
+    case 3:
+      return 'Location request timed out. Please retry in a moment.';
+    default:
+      return error.message || 'Could not access your location';
+  }
 }
 
 export function calculateDistanceKm(from, to) {

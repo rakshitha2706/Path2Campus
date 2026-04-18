@@ -10,7 +10,6 @@ import InputForm from './pages/InputForm';
 import Results from './pages/Results';
 import CollegeDetail from './pages/CollegeDetail';
 import Comparison from './pages/Comparison';
-import Dashboard from './pages/Dashboard';
 import Saved from './pages/Saved';
 import ChatBot from './components/ChatBot';
 
@@ -41,7 +40,6 @@ function App() {
                 <Route path="/results" element={<Results />} />
                 <Route path="/:exam/college/:id" element={<CollegeDetail />} />
                 <Route path="/compare" element={<Comparison />} />
-                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/saved" element={<Saved />} />
               </Routes>
               <ChatBot />

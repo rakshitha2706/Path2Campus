@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
+import CollegeMap from '../components/CollegeMap';
 
 export default function CollegeDetail() {
   const { id, exam } = useParams();
@@ -223,6 +224,8 @@ export default function CollegeDetail() {
           )}
         </div>
       </div>
+
+      <CollegeMap college={college} exam={exam} />
     </div>
   );
 }

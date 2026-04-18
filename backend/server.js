@@ -18,6 +18,7 @@ app.use('/api/eapcet', require('./routes/eapcet'));
 app.use('/api/josaa', require('./routes/josaa'));
 app.use('/api/colleges', require('./routes/colleges'));
 app.use('/api/chatbot', require('./routes/chatbot'));
+app.use('/api/location', require('./routes/location'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));

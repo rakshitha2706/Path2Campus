@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  Home, Search, BookOpen, BarChart2, Heart, GitCompare,
+  Home, Search, BookOpen, Heart, GitCompare,
   ChevronLeft, ChevronRight, GraduationCap, X
 } from 'lucide-react';
 
@@ -10,7 +10,6 @@ const links = [
   { to: '/search',      icon: Search,      label: 'Find College' },
   { to: '/results',     icon: BookOpen,    label: 'Results' },
   { to: '/compare',     icon: GitCompare,  label: 'Compare' },
-  { to: '/dashboard',   icon: BarChart2,   label: 'Dashboard' },
   { to: '/saved',       icon: Heart,       label: 'Saved' },
 ];
 

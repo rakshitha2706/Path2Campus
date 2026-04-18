@@ -35,4 +35,8 @@ const EapcetCollegeSchema = new mongoose.Schema({
   year: { type: Number, default: 2024 }
 });
 
-module.exports = mongoose.model('EapcetCollege', EapcetCollegeSchema);
+module.exports = mongoose.model(
+  'EapcetCollege',
+  EapcetCollegeSchema,
+  'eapcetcolleges'
+);

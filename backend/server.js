@@ -32,7 +32,16 @@ const configuredOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN |
   .split(',')
   .map(normalizeOrigin)
   .filter(Boolean);
-const allowedOrigins = [...new Set([...defaultOrigins.map(normalizeOrigin), ...configuredOrigins])];
+const envFrontendUrl = normalizeOrigin(process.env.FRONTEND_URL || process.env.APP_URL || '');
+const knownHostedOrigins = ['https://path2campus-1.onrender.com'];
+const allowedOrigins = [
+  ...new Set([
+    ...defaultOrigins.map(normalizeOrigin),
+    ...configuredOrigins,
+    envFrontendUrl,
+    ...knownHostedOrigins.map(normalizeOrigin),
+  ].filter(Boolean)),
+];
 
 function corsOrigin(origin, callback) {
   // Allow same-origin/server-to-server requests with no Origin header.
@@ -101,6 +110,7 @@ let startupDiagnostics = {
   datasetsDir: DATASETS_DIR,
   datasetsDirExists: hasDatasetsDirectory(),
   datasetFiles: listDatasetFiles(),
+  nodeEnv: process.env.NODE_ENV || 'development',
   eapcetCount: 0,
   josaaCount: 0,
   bootstrapSeeded: false,
@@ -159,6 +169,7 @@ async function startServer() {
     datasetsDir: DATASETS_DIR,
     datasetsDirExists: hasDatasetsDirectory(),
     datasetFiles: listDatasetFiles(),
+    nodeEnv: process.env.NODE_ENV || 'development',
     eapcetCount: seedStatus.eapcetCount,
     josaaCount: seedStatus.josaaCount,
     bootstrapSeeded: seedStatus.seeded,

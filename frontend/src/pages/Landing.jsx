@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GraduationCap, ArrowRight, Sparkles, Target, TrendingUp, Users, Star, CheckCircle, ChevronRight } from 'lucide-react';
+import { GraduationCap, ArrowRight, Sparkles, Target, Users, Star, CheckCircle, ChevronRight } from 'lucide-react';
 
 const stats = [
   { value: '963+', label: 'EAPCET Colleges' },
@@ -21,9 +21,9 @@ const features = [
     desc: 'Know your exact admission chances before applying to any college.'
   },
   {
-    icon: TrendingUp, color: 'bg-emerald-50 text-emerald-600',
-    title: 'ROI Calculator',
-    desc: 'Calculate return on investment based on tuition fees and average packages (EAPCET).'
+    icon: Users, color: 'bg-emerald-50 text-emerald-600',
+    title: 'Student-Friendly Insights',
+    desc: 'Understand cutoff trends and shortlist colleges with clearer confidence.'
   },
   {
     icon: GitCompare2, color: 'bg-orange-50 text-orange-600',
@@ -47,10 +47,10 @@ const examCards = [
     id: 'eapcet',
     title: 'TG EAPCET 2024',
     subtitle: 'Telangana Engineering',
-    desc: 'Category-wise cutoffs, tuition fees, ROI analysis for 963+ Telangana colleges',
+    desc: 'Category-wise cutoffs and fee details for 963+ Telangana colleges',
     gradient: 'from-blue-500 to-blue-700',
     lightBg: 'bg-blue-50',
-    features: ['Category-wise ranks (OC, BC, SC, ST, EWS)', 'Tuition fee & ROI calculation', 'Location-based filtering'],
+    features: ['Category-wise ranks (OC, BC, SC, ST, EWS)', 'Tuition fee details', 'Location-based filtering'],
   },
   {
     id: 'josaa',

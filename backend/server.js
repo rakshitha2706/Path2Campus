@@ -16,13 +16,23 @@ const {
 
 const app = express();
 
+function normalizeOrigin(value) {
+  if (!value) return null;
+
+  try {
+    return new URL(value.trim()).origin;
+  } catch (_error) {
+    return value.trim().replace(/\/+$/, '');
+  }
+}
+
 const isProduction = process.env.NODE_ENV === 'production';
 const defaultOrigins = isProduction ? [] : ['http://localhost:5173', 'http://localhost:5174'];
-const configuredOrigins = (process.env.CORS_ORIGINS || '')
+const configuredOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '')
   .split(',')
-  .map((origin) => origin.trim())
+  .map(normalizeOrigin)
   .filter(Boolean);
-const allowedOrigins = [...new Set([...defaultOrigins, ...configuredOrigins])];
+const allowedOrigins = [...new Set([...defaultOrigins.map(normalizeOrigin), ...configuredOrigins])];
 
 function corsOrigin(origin, callback) {
   // Allow same-origin/server-to-server requests with no Origin header.
@@ -30,11 +40,14 @@ function corsOrigin(origin, callback) {
     return callback(null, true);
   }
 
-  if (allowedOrigins.includes(origin)) {
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  if (allowedOrigins.includes(normalizedOrigin)) {
     return callback(null, true);
   }
 
-  return callback(new Error(`CORS blocked for origin: ${origin}`));
+  console.warn(`CORS blocked for origin: ${normalizedOrigin}`);
+  return callback(new Error(`CORS blocked for origin: ${normalizedOrigin}`));
 }
 
 const frontendDistPath =
@@ -92,10 +105,12 @@ let startupDiagnostics = {
   josaaCount: 0,
   bootstrapSeeded: false,
   bootstrapReason: 'not-started',
+  allowedOrigins,
 };
 
 // Middleware
 app.use(cors({ origin: corsOrigin, credentials: true }));
+app.options('*', cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json());
 
 // Routes
@@ -148,6 +163,7 @@ async function startServer() {
     josaaCount: seedStatus.josaaCount,
     bootstrapSeeded: seedStatus.seeded,
     bootstrapReason: seedStatus.reason,
+    allowedOrigins,
   };
 
   app.listen(PORT, () => console.log(`Path2Campus server running on port ${PORT}`));

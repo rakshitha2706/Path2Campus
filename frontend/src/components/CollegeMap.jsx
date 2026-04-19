@@ -85,6 +85,7 @@ export default function CollegeMap({ college, exam }) {
 
   const distanceKm =
     userCoordinates && coordinates ? calculateDistanceKm(userCoordinates, coordinates) : null;
+  const hasDistance = Number.isFinite(distanceKm);
 
   const mapSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     primaryLocationQuery
@@ -161,7 +162,13 @@ export default function CollegeMap({ college, exam }) {
         <div className="rounded-2xl bg-emerald-50 px-4 py-3">
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600">Distance</div>
           <div className="mt-1 text-sm font-semibold text-emerald-800">
-            {distanceKm ? `${distanceKm.toFixed(1)} km from you` : 'Enable GPS to estimate'}
+            {hasDistance
+              ? `${distanceKm.toFixed(1)} km from you`
+              : loadingUserLocation
+                ? 'Locating you...'
+                : userCoordinates && loadingMap
+                  ? 'Calculating distance...'
+                  : 'Enable GPS to estimate'}
           </div>
         </div>
       </div>

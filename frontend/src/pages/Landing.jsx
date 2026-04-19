@@ -1,5 +1,6 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { GraduationCap, ArrowRight, Sparkles, Target, Users, Star, CheckCircle, ChevronRight } from 'lucide-react';
 
 const stats = [
@@ -65,6 +66,16 @@ const examCards = [
 
 export default function Landing() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const sharedResults = searchParams.get('share');
+    if (!sharedResults) {
+      return;
+    }
+
+    navigate(`/results?share=${encodeURIComponent(sharedResults)}`, { replace: true });
+  }, [navigate, searchParams]);
 
   return (
     <div className="min-h-screen bg-white">

@@ -1,19 +1,78 @@
 import React, { useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, ArrowLeft, Download, Share2, GitCompare } from 'lucide-react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Search, ArrowLeft, Download, Share2, GitCompare, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import CollegeCard from '../components/CollegeCard';
-import { collegesAPI } from '../api';
+import { collegesAPI, eapcetAPI, josaaAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { getCompareState, toggleCompareCollege } from '../utils/compare';
 
 export default function Results() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const { results, exam, formData } = location.state || {};
+  const [sharedPayload, setSharedPayload] = React.useState(null);
+  const [sharedLoading, setSharedLoading] = React.useState(false);
+  const { results: stateResults, exam: stateExam, formData: stateFormData } = location.state || {};
   const [savedIds, setSavedIds] = useState(() => new Set());
   const [compareState, setCompareState] = useState(() => getCompareState());
+
+  React.useEffect(() => {
+    const shared = searchParams.get('share');
+
+    if (!shared) {
+      setSharedPayload(null);
+      setSharedLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadSharedResults = async () => {
+      setSharedLoading(true);
+
+      try {
+        const decoded = JSON.parse(decodeURIComponent(shared));
+        const sharedExam = decoded?.exam;
+        const sharedFormData = decoded?.formData;
+        const api = sharedExam === 'eapcet' ? eapcetAPI : josaaAPI;
+
+        if (!sharedExam || !sharedFormData || !api) {
+          throw new Error('Invalid shared results link');
+        }
+
+        const response = await api.recommend(sharedFormData);
+
+        if (!cancelled) {
+          setSharedPayload({
+            results: response.data,
+            exam: sharedExam,
+            formData: sharedFormData,
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setSharedPayload(null);
+          toast.error('This shared results link is invalid or expired.');
+        }
+      } finally {
+        if (!cancelled) {
+          setSharedLoading(false);
+        }
+      }
+    };
+
+    loadSharedResults();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
+
+  const results = stateResults || sharedPayload?.results;
+  const exam = stateExam || sharedPayload?.exam;
+  const formData = stateFormData || sharedPayload?.formData;
 
   const colleges = useMemo(() => {
     if (!results) {
@@ -32,6 +91,17 @@ export default function Results() {
         return rankA - rankB;
       });
   }, [results]);
+
+  React.useEffect(() => {
+    if (stateResults || !results || !exam || !formData) {
+      return;
+    }
+
+    navigate('/results', {
+      replace: true,
+      state: { results, exam, formData },
+    });
+  }, [exam, formData, navigate, results, stateResults]);
 
   React.useEffect(() => {
     let ignore = false;
@@ -60,6 +130,16 @@ export default function Results() {
       ignore = true;
     };
   }, [exam, user]);
+
+  if (sharedLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh]">
+        <Loader2 size={40} className="animate-spin text-blue-500 mb-4" />
+        <h2 className="text-xl font-bold text-slate-800">Opening shared results</h2>
+        <p className="text-slate-500 mt-2 text-center">We are rebuilding these recommendations from the shared filters.</p>
+      </div>
+    );
+  }
 
   if (!results) {
     return (
@@ -178,16 +258,22 @@ export default function Results() {
 
   const handleShare = async () => {
     const shareText = `Path2Campus ${exam === 'eapcet' ? 'TG EAPCET' : 'JoSAA'} results for rank ${formData?.rank}`;
+    const sharedUrl = `${window.location.origin}/?share=${encodeURIComponent(
+      JSON.stringify({
+        exam,
+        formData,
+      })
+    )}`;
 
     try {
       if (navigator.share) {
         await navigator.share({
           title: 'Path2Campus Results',
           text: shareText,
-          url: window.location.href,
+          url: sharedUrl,
         });
       } else {
-        await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+        await navigator.clipboard.writeText(`${shareText}\n${sharedUrl}`);
         toast.success('Results link copied to clipboard.');
       }
     } catch {

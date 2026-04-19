@@ -13,4 +13,8 @@ const JosaCollegeSchema = new mongoose.Schema({
   institute_type: { type: String, index: true } // IIT, NIT, IIIT, GFTI etc.
 });
 
-module.exports = mongoose.model('JosaCollege', JosaCollegeSchema);
+module.exports = mongoose.model(
+  'JosaCollege',
+  JosaCollegeSchema,
+  'josacolleges'
+);

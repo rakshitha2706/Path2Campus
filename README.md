@@ -35,7 +35,6 @@ We are a team of passionate developers representing:
 * 🔐 **Secure 1-Click Login:** Integrated Google OAuth 2.0 for secure account generation to securely save your shortlisted colleges.
 * 📊 **Dynamic Dataset Support:** Intercepts algorithms automatically based on user intent, cleanly swapping between **TG EAPCET** structures and **JoSAA/JEE** allocation structures.
 * 🎯 **AI Admission Classifier:** Sophisticated probability logic evaluates your exact percentile/rank against deep category quotas, yielding `Safe`, `Target`, or `Dream` probabilities.
-* 📈 **Return on Investment (ROI) Tracker:** Calculates exactly how valuable an EAPCET seat is by comparing static tuition fees against extrapolated average salary packages.
 * ⚖️ **Side-by-Side Comparison Engine:** Choose exactly two distinct colleges and map them head-to-head across strict closing rank, probability, score, and tuition fee margins.
 * 📉 **Interactive Analytics Dashboard:** See exactly how the market moves with dynamic Recharts implementations visually separating ROI distributions and JoSAA opening vs closing ranks.
 * 🤖 **Natural Language ChatBot:** An embedded, context-aware AI assistant capable of parsing intent (e.g. *"Show me CSE colleges under 30k rank"*).
@@ -110,6 +109,13 @@ Our platform's brain functions on a strict distance ratio metric to ensure accur
    - **Target:** `-0.10 <= Ratio <= 0.20` *(Rank is right in the competitive window)*
    - **Dream:** `Ratio < -0.10` *(Rank relies heavily on sliding window variations)*
 3. **Probability:** `Probability = Max(0, Min(100, Ratio * 100))`
+
+---
+Architecture Diagram
+<img width="1408" height="768" alt="Gemini_Generated_Image_rhtv8drhtv8drhtv" src="https://github.com/user-attachments/assets/defc34d9-7949-4c34-84d4-2ee3833b6089" />
+
+
+
 
 ---
 

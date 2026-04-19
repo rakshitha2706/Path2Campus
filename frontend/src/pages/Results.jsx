@@ -6,6 +6,7 @@ import CollegeCard from '../components/CollegeCard';
 import { collegesAPI, eapcetAPI, josaaAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { getCompareState, toggleCompareCollege } from '../utils/compare';
+import { buildSharedResultsToken, parseSharedResultsToken } from '../utils/shareResults';
 
 export default function Results() {
   const location = useLocation();
@@ -33,7 +34,7 @@ export default function Results() {
       setSharedLoading(true);
 
       try {
-        const decoded = JSON.parse(decodeURIComponent(shared));
+        const decoded = parseSharedResultsToken(shared);
         const sharedExam = decoded?.exam;
         const sharedFormData = decoded?.formData;
         const api = sharedExam === 'eapcet' ? eapcetAPI : josaaAPI;
@@ -258,11 +259,12 @@ export default function Results() {
 
   const handleShare = async () => {
     const shareText = `Path2Campus ${exam === 'eapcet' ? 'TG EAPCET' : 'JoSAA'} results for rank ${formData?.rank}`;
+    const shareToken = buildSharedResultsToken({
+      exam,
+      formData,
+    });
     const sharedUrl = `${window.location.origin}/?share=${encodeURIComponent(
-      JSON.stringify({
-        exam,
-        formData,
-      })
+      shareToken
     )}`;
 
     try {

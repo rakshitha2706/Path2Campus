@@ -74,7 +74,7 @@ export default function Landing() {
       return;
     }
 
-    navigate(`/results?share=${encodeURIComponent(sharedResults)}`, { replace: true });
+    navigate(`/results?share=${sharedResults}`, { replace: true });
   }, [navigate, searchParams]);
 
   return (

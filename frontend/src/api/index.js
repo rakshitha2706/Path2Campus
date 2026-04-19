@@ -1,6 +1,22 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api' });
+function resolveApiBaseURL() {
+  const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (configuredBaseUrl) {
+    return configuredBaseUrl.replace(/\/+$/, '');
+  }
+
+  const { hostname, port } = window.location;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (isLocalhost && port && port !== '5000') {
+    return 'http://localhost:5000/api';
+  }
+
+  return '/api';
+}
+
+const api = axios.create({ baseURL: resolveApiBaseURL() });
 
 api.interceptors.request.use(cfg => {
   const token = localStorage.getItem('p2c_token');

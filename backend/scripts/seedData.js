@@ -8,6 +8,15 @@ const JosaCollege = require('../models/JosaCollege');
 
 const DATASETS_DIR = path.join(__dirname, '../../datasets');
 
+function hasDatasetsDirectory() {
+  return fs.existsSync(DATASETS_DIR);
+}
+
+function listDatasetFiles() {
+  if (!hasDatasetsDirectory()) return [];
+  return fs.readdirSync(DATASETS_DIR);
+}
+
 function safeParseNumber(value) {
   if (value === null || value === undefined || value === '') return null;
   const normalized = value.toString().replace(/,/g, '').trim();
@@ -17,7 +26,7 @@ function safeParseNumber(value) {
 }
 
 function findDatasetFile(matchers) {
-  const files = fs.readdirSync(DATASETS_DIR);
+  const files = listDatasetFiles();
   return files.find((file) => matchers.every((matcher) => matcher.test(file))) || null;
 }
 
@@ -153,4 +162,11 @@ if (require.main === module) {
     });
 }
 
-module.exports = { main, seedEapcet, seedJosaa };
+module.exports = {
+  main,
+  seedEapcet,
+  seedJosaa,
+  DATASETS_DIR,
+  hasDatasetsDirectory,
+  listDatasetFiles,
+};
